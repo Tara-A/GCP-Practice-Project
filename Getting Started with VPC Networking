@@ -1,0 +1,116 @@
+#LAB: GETTING STARTED WITH VPC NETWORKING
+
+## Objectives
+
+	* Explore the default VPC network
+	* Create an auto mode network with firewall rules
+	* Create VM instances using Compute Engine
+	* Explore the connectivity for VM instances
+	
+## Steps
+
+1. Explore the default networks
+
+	* List the default network with its subnets
+	
+	gcloud compute networks subnets list
+	
+	* View the routes
+	
+	gcloud compute routes list
+	
+	* View the firewall rules
+	
+	gcloud compute firewall-rules list
+	
+	* Delete the Firewall rules
+	
+	gcloud compute firewall-rules delete
+	
+	* Delete the default network
+	
+	gcloud compute networks delete
+	
+	* Try to create a VM instance
+	
+	gcloud compute instances create instance-1 --zone=us-central1-a
+	<!--- you cannot create a VM instance without a VPC network and so the command will fail--->
+	
+2. Create a VPC network and VM instances
+
+	* Create an auto mode VPC network with Firewall rules
+	
+	gcloud compute networks create mynetwork --subnet-mode=auto --bgp-routing-mode=global
+	
+	* Create a VM instance in us-central1
+	
+	gcloud compute instances create mynet-us-vm --zone=us-central1-c --machine-type=f1-micro
+	
+	* Create a VM instance in europe-west1
+	
+	gcloud compute instances create mynet-eu-vm --zone=europe-west1-c --machine-type=f1-micro
+	
+3. Explore the connectivity for VM instances
+
+	* Verify connectivity for the VM instances
+	
+	gcloud compute ssh mynet-us-vm --zone=us-central1-c
+	
+	* Test connectivity to internal IP
+	
+	ping -c 3 mynet-eu-vm
+	
+	* To test connectivity to mynet-eu-vm's external IP
+	
+	ping -c 3 (Enter mynet-eu-vm's external IP here)
+	
+	* Remove the allow-icmp firewall rules
+	
+	gcloud compute firewall-rules delete mynetwork-allow-icmp
+	
+	<!---return to mynet-us-vm SSH terminal --->
+	
+	* To test connectivity to mynet-eu-vm's internal IP
+	
+	ping -c 3 mynet-eu-vm
+	<!--- You can ping mynet-eu-vm's internal IP because of the allow-internal firewall rule. --->
+	
+	* To test connectivity to mynet-eu-vm's external IP
+	
+	ping -c 3 (Enter mynet-eu-vm's external IP here)
+	
+	<!--- you cannot ping mynet-eu-vm's external IP. --->
+	
+	* Remove the allow-internal firewall rules
+	
+	gcloud compute firewall-rules delete mynetwork-allow-internal
+	
+	<!--- Return to the mynet-us-vm SSH terminal.--->
+	
+	* To test connectivity to mynet-eu-vm's internal IP
+	
+	ping -c 3 mynet-eu-vm
+	
+	<!--- you cannot ping mynet-eu-vm's internal IP. --->
+	
+	* Close the SSH terminal
+	
+	exit
+	
+	* Remove the allow-ssh firewall rules
+	
+	gcloud compute firewall-rules delete mynetwork-allow-ssh 
+	
+	* launch a terminal and connect.
+	
+	gcloud compute ssh mynet-us-vm --zone=us-central1-c
+	<!--- you cannot SSH to mynet-us-vm because you deleted the allow-ssh firewall rule--->
+	
+## End your lab
+	
+	
+
+
+	
+	
+	
