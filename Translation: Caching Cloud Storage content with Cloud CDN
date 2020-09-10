@@ -1,0 +1,56 @@
+# Caching Cloud Storage content with Cloud CDN
+
+## Objectives
+
+	* Create and populate a Cloud Storage bucket
+	
+	* Create an HTTP load balancer with Cloud CDN
+	
+	* Verify the caching of your bucket's content
+	
+	* Invalidate the cached content
+	
+1. Create and populate a Cloud Storage bucket
+
+	* Create a unique Cloud Storage bucket
+	
+	gsutil mb -l us-east1 gs://example1_bucket1 
+	
+	* Copy image files into your bucket
+	
+	export YOUR_BUCKET=example1_bucket1
+	
+	gsutil cp gs://cloud-training/gcpnet/cdn/cdn.png gs://$YOUR_BUCKET
+	
+	gsutil cp gs://cloud-training/gcpnet/cdn/regions.png gs://$YOUR_BUCKET
+	
+	gsutil ls gs://$YOUR_BUCKET
+	
+	gsutil acl ch -u AllUsers:R gs://$YOUR_BUCKET/cdn.png
+ 	
+ 	gsutil acl ch -u AllUsers:R gs://$YOUR_BUCKET/regions.png
+ 	
+ 2. Create the HTTP load balancer with Cloud CDN
+	
+	gcloud compute backend-buckets create cdn-bucket --gcs-bucket-name=example1_bucket1 --enable-cdn
+ 
+	gcloud compute forwarding-rules create front-end --load-balancing-scheme=EXTERNAL --ports=80 --backend-bucket=cdn-bucket --ip-version=IPV4 --region=us-east1
+	
+3. Verify the caching of your bucket's content
+	
+	export LB_IP _ADDRESS=*Enter the IP address of the load balancer*
+	
+	for ((i=0;i<10;i++)); do curl -w  \
+    "%{time_total}\n" -o /dev/null -s http://$LB_IP_ADDRESS/cdn.png; done
+
+	* Invalidate the cached content
+	
+	gsutil cp gs://cloud-training/gcpnet/cdn/updatedcdn.png gs://$YOUR_BUCKET/cdn.png
+	
+	 gsutil acl ch -u AllUsers:R gs://$YOUR_BUCKET/cdn.png
+	 
+	 gcloud compute url-maps invalidate-cdn-cache http://LB_IP _ADDRESS/cdn.png
+	  --path "/cdn.png"
+	  
+	  
+	

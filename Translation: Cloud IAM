@@ -1,0 +1,74 @@
+# Cloud IAM
+
+## Objectives
+	* Use Cloud IAM to implement access control
+
+	* Restrict access to specific features or resources
+	
+	* Use the Service Account User role
+	
+1. Prepare a resource for access testing
+
+	* Create a bucket and upload a sample file
+	
+	<!---Switch Username 1--->
+	gsutil mb gs://*$DEVSHELL_PROJECT _ID*
+	
+	<!--- Upload any sample file from your local machine.--->
+	gsutil cp *OBJECT LOCATION* gs://*$DEVSHELL_PROJECT _ID*
+	
+	<!--- Rename the file to sample.txt--->
+	gsutil mv gs://*$DEVSHELL_PROJECT _ID*/*oldprefix* gs://*$DEVSHELL_PROJECT _ID*/sample.txt
+	
+	*Verify project viewer access
+	<!--- Switch to Username 2--->
+	gsutil ls gs://*$DEVSHELL_PROJECT _ID*
+	
+2. Remove project access
+	<!--- Switch to username 1--->
+	gcloud projects remove-iam-policy-binding *Username 2* --member=user:*username2_emailId --role=roles/viewer
+	
+	* Verify that Username 2 has lost access
+
+	
+	<!--- Switch to Username 2--->
+	gsutil ls gs://*$DEVSHELL_PROJECT _ID*
+	
+3. Add storage access
+
+	* Add storage permissions
+	<!---Switch to Username 1--->
+	gcloud projects add-iam-policy-binding *Username 2* --member=user:*username2_emailId --role=roles/viewer
+	
+	* Verify that Username 2 has storage access
+	
+	<!---Switch to Username 2---> 
+	gsutil ls gs://*$DEVSHELL_PROJECT _ID*
+	
+4. Set up the Service Account User
+
+	*Create a service account
+	
+	gcloud beta iam service-accounts create read-bucket-objects --role=roles/viewer
+	
+	gcloud iam service-accounts  add-iam-policy-binding read-bucket-objects --member=altostrat.com --role=roles/
+	
+	gcloud beta iam service-accounts  add-iam-policy-binding read-bucket-objects --member=altostrat.com role=roles
+	
+	gcloud compute instances create demoiam --zone=us-central1-c --machine-type=f1-micro --boot-disk-size=10GB --network=default --image=debian-cloud --service-account=read-bucket-objects
+	
+	* SSH to demoiam
+	
+	gcloud compute ssh demoiam --zone=us-central1-c 
+	
+	gcloud compute instances list
+	
+	<!---Copy the sample.txt file from the bucket you created earlier ---> 
+	gsutil cp gs://[$DEVSHELL_PROJECT _ID]/sample.txt 
+	
+	<!---Copy the sample.txt file from the bucket you created earlier--->
+	mv sample.txt sample2.txt
+	
+	<!---To copy the renamed file back to the bucket---> 
+	gsutil cp sample2.txt gs://[$DEVSHELL_PROJECT _ID]
+	
