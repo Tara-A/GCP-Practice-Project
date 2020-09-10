@@ -1,0 +1,154 @@
+#Dynamic VPN gateways with Cloud Routers
+
+##Objectives
+
+	* Create two networks to represent your VPC and on-premises network, with a VM in each network to test connectivity
+	
+	* Connect the two networks using Cloud Routers
+	
+	* Add a new subnetwork and verify that Dynamic BGP routing is working
+
+1. Create the networks
+
+	Create the first network
+	
+	gcloud compute networks create gcp-vcp --subnet-mode=custom --bgp-routing-mode=regional
+	
+	gcloud compute networks subnets create subnet-a --range=10.5.4.0/24 --network=gcp-vpc --region=us-central1
+	
+	* Create the second network
+	
+	gcloud compute networks create on-prem --subnet-mode=custom --bgp-routing-mode=regional
+	
+	gcloud compute networks subnets create subnet-b --range=10.1.3.0/24 --netwrok=on-prem --region=europe-west1
+	
+2. Task 2. Create the utility VMs
+
+	* Create the first instance
+	
+	gcloud compute instances create gcp-server --zone=us-central1-a --machine-type=n1-standard-1 --subnet=subnet-a --network-tier=PREMIUM --maintenance-policy=MIGRATE --image=debian-10-buster-v20200902 --image-project=debian-cloud --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=gcp-server 
+	
+	* Create the second instance
+	
+	gcloud compute instances create on-prem-1 --zone=europe-west1-b --machine-type=n1-standard-1 --subnet=subnet-b --network-tier=PREMIUM --maintenance-policy=MIGRATE --image=debian-10-buster-v20200902 --image-project=debian-cloud --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=on-prem-1
+	
+3. Create the firewall rules
+
+	* Allow traffic to gcp-vpc
+	
+	gcloud compute firewall-rules create allow-icmp-ssh-gcp-vpc --direction=INGRESS --priority=1000 --network=gcp-vpc --action=ALLOW --rules=tcp:22,icmp --source-ranges=0.0.0.0/0
+	
+	* Allow traffic to on-prem
+	
+	gcloud compute firewall-rules create allow-icmp-ssh-on-prem --direction=INGRESS --priority=1000 --network=on-prem --action=ALLOW --rules=tcp:22,icmp --source-ranges=0.0.0.0/0
+	
+4. Verify network connectivity
+
+	* Test connectivity from gcp-server to on-prem-1
+	
+	gcloud compute ssh gcp-server --zone=us-central1-a -- -vvv \
+            -L 80:%INSTANCE%:80
+            
+	ping -c 3 (Enter on-prem-1's external IP address)
+	
+	ping -c 3 (Enter on-prem-1's internal IP address)
+	
+	exit
+	
+	* Test connectivity from on-prem-1 to gcp-server
+	
+	gcloud compute ssh on-prem-1 --zone=europe-west1-b -- -vvv \
+            -L 80:%INSTANCE%:80
+            
+	ping -c 3 (Enter gcp-server's external IP address)
+	
+	ping -c 3 (Enter gcp-server's internal IP address)
+	
+	exit
+	
+5. Create the Cloud Routers
+
+	* Create the gcp-vpc Cloud Router
+	
+	gcloud compute routers create gcp-vpc-cr --region=us-central1 --network=gcp-vpc --asn=65470
+	
+	* Create the on-prem Cloud Router
+
+	gcloud compute routers create on-prem-cr --region=europe-west1 --network=on-prem --asn=65503
+	
+	* Prepare for VPN Gateways configuration
+	
+	gcloud compute addresses create gcp-vpc-ip --region=us-central1
+	
+	gcloud compute addresses create on-prem-ip --region=europe-west1
+	
+	* Create the first VPN
+	
+	gcloud compute target-vpn-gateways create "vpn-1" --region "us-central1" --network "gcp-vpc"
+
+	gcloud compute forwarding-rules create vpn-1-rule-esp --region "us-central1" --address "35.224.144.207" --ip-protocol "ESP" --target-vpn-gateway "vpn-1"
+
+	gcloud compute forwarding-rules create vpn-1-rule-udp500 --region "us-central1" --address "35.224.144.207" --ip-protocol "UDP" --ports "500" --target-vpn-gateway "vpn-1"
+
+	gcloud compute forwarding-rules create vpn-1-rule-udp4500 --region "us-central1" --address "35.224.144.207" --ip-protocol "UDP" --ports "4500" --target-vpn-gateway "vpn-1"
+
+	gcloud compute vpn-tunnels create vpn-1-tunnel-1 --region "us-central1" --peer-address "35.187.31.86" --shared-secret "gcprocks" --ike-version "2" --target-vpn-gateway "vpn-1"
+	
+	* Create the second VPN
+	
+	gcloud compute target-vpn-gateways create vpn-2 --region "europe-west1" --network "on-prem"
+
+	gcloud compute forwarding-rules create vpn-2-rule-esp --region "europe-west1" --address "35.187.31.86" --ip-protocol "ESP" --target-vpn-gateway "vpn-2"
+
+	gcloud compute forwarding-rules create vpn-2-rule-udp500 --region "europe-west1" --address "35.187.31.86" --ip-protocol "UDP" --ports "500" --target-vpn-gateway "vpn-2"
+
+	gcloud compute forwarding-rules create vpn-2-rule-udp4500 --region "europe-west1" --address "35.187.31.86" --ip-protocol "UDP" --ports "4500" --target-vpn-gateway "vpn-2"
+
+	gcloud compute vpn-tunnels create vpn-2-tunnel-1 --region "europe-west1" --peer-address "35.224.144.207" --shared-secret "gcprocks" --ike-version "2" --target-vpn-gateway "vpn-2"
+	
+6. Verify connection
+
+	gcloud compute ssh gcp-server --zone=us-central1-a -- -vvv \
+            -L 80:%INSTANCE%:80	
+ 
+ 	ping -c 3 (Enter on-prem-1's internal IP address)
+ 	
+ 	exit
+ 	
+ 	gcloud compute ssh on-prem-1 --zone=europe-west1-b -- -vvv \
+            -L 80:%INSTANCE%:80
+            
+	ping -c 3 (Enter gcp-server's internal IP address)
+	
+	exit
+	
+7. Demonstrate Dynamic Routing
+
+	* Create a new subnet in on-prem
+	
+	gcloud compute networks subnets create subnet-c --range=10.4.2.0/24 --netwrok=on-prem --region=europe-west1
+	
+	* Create a new utility VM in the new subnet
+	
+	cloud compute instances create on-prem-2 --zone=europe-west1-c --machine-type=n1-standard-1 --subnet=subnet-c --network-tier=PREMIUM --maintenance-policy=MIGRATE --image=debian-10-buster-v20200902 --image-project=debian-cloud --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=on-prem-2 
+	
+	gcloud compute ssh gcp-server --zone=us-central1-a -- -vvv \
+            -L 80:%INSTANCE%:80
+
+	ping -c 3 (Enter on-prem-2's internal IP address here)
+	
+	exit
+	
+	* Remove the external IP addresses
+	
+	gcloud compute instances gcp-server stop
+	
+	gcloud compute instances gcp-server update --no-address
+	
+	gcloud compute instances gcp-server start
+	
+	gcloud compute ssh on-prem-1 --zone=europe-west1-b -- -vvv \
+            -L 80:%INSTANCE%:80
+        
+        ping -c 3 (Enter gcp-server's internal IP address)
+	
